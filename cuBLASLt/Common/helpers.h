@@ -27,6 +27,15 @@
 #include <cuda_fp8.h>
 #include <cuda_fp4.h>
 #include <cuda_runtime_api.h>
+#include <random>
+#include <iostream>
+
+const float upper = 6.0f; // Upper bound for random float generation
+const float lower = -6.0f; // Lower bound for random float generation
+
+inline float random_float() {
+    return (float)rand() / RAND_MAX * (upper - lower) + lower;
+}
 
 
 static size_t roundoff(size_t  x, size_t granul) {
@@ -46,7 +55,7 @@ struct StorageType {
 
 template <>
 struct StorageType<__nv_fp4_e2m1> {
-    static constexpr size_t packing = 2;
+    static constexpr size_t packing = 1;
     using type = __nv_fp4x2_e2m1;
 };
 
@@ -264,11 +273,37 @@ struct TestBench {
         checkCudaStatus(cudaStreamDestroy(stream));
     }
 
+    
+    void rdSingleMatrixBinFP4(std::vector<__nv_fp4x2_e2m1> *p, int m, int n, FILE *ifp) {
+        if (!p || !ifp) { printf("rdSingleMatrixBinFP4: null arg\n"); exit(-1); }
+
+        int singleRandDataHeight = m, singleRandDataWidth = n;
+        __nv_fp4x2_e2m1 *data = (__nv_fp4x2_e2m1*)malloc(singleRandDataHeight * singleRandDataWidth * sizeof(__nv_fp4x2_e2m1));
+
+        size_t read_count = fread(data, sizeof(__nv_fp4x2_e2m1), singleRandDataHeight * singleRandDataWidth, ifp);
+        p->resize((size_t)m * n);
+
+        for (int i = 0; i < m; i += singleRandDataHeight) {
+            for (int j = 0; j < n; j += singleRandDataWidth) {
+                int ii_iteration = singleRandDataHeight + i > m ? m : singleRandDataHeight + i;
+                int jj_iteration = singleRandDataWidth + j > n ? n : singleRandDataWidth + j;
+                for (int ii = i; ii < ii_iteration; ++ii) {
+                    for (int jj = j; jj < jj_iteration; ++jj) {
+                        (*p)[ii * n + jj] = data[(ii - i) * singleRandDataWidth + (jj - j)];
+                    }
+                }
+            }
+        }
+        printf("rdSingleMatrixBinFP4 here\n");
+
+        free(data);
+    }
+
     void fillData() {
-        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(i);
-        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(i + 1);
+        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(random_float());
+        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(random_float());
     }
 
     void fillScales(ScaleType Ascale, ScaleType Bscale, ScaleType Cscale, DScaleType Dscale) {
@@ -406,10 +441,44 @@ inline void TestBench<__half, __half, cuComplex>::fillData() {
 
 template <>
 inline void TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e4m3, float, __nv_bfloat16>::fillData() {
-    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
-    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
-    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(i % 5);
-    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
+    // for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
+    // for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
+    // for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(i % 5);
+    // for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
+    bool use_random_flag = 0;
+    if (use_random_flag){
+        // when use random input, uncomment the following lines and modify static constexpr size_t packing = 2 (line58)
+	    // for (size_t i = 0; i < Ahost.size(); i++){
+        //     float2 f_A = {random_float(), random_float()};
+        //     Ahost[i] = __nv_fp4x2_e2m1{f_A};
+        //     if (i < 20) printf("Ahost[%zu] = {%.1f, %.1f}\n", i, f_A.x, f_A.y);
+        // }
+    
+        // for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+        // for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
+        // for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+    }else{
+	    // use .bin file as input
+        FILE *ifpA, *ifpB;
+    	ifpA = fopen("/home/ubuntu/dataset/chenying/chenying/CUDALibrarySamples/cuBLASLt/Common/a_nvfp4_data_1223_16k32k.bin", "rb");
+    	ifpB = fopen("/home/ubuntu/dataset/chenying/chenying/CUDALibrarySamples/cuBLASLt/Common/b_nvfp4_data_1223_32k16k.bin", "rb");
+        
+    	if (ifpA == NULL || ifpB == NULL)
+    	{
+            printf("error: failed to open the A/B matrix binary data file, copy them to current dir.\n");
+            exit(-1);
+    	}
+    	rdSingleMatrixBinFP4(&Ahost, m, k, ifpA);
+    	rdSingleMatrixBinFP4(&Bhost, k, n, ifpB);
+       
+        printf("Ahost size: %zu\n", Ahost.size());
+        printf("Bhost size: %zu\n", Bhost.size());
+
+    	fclose(ifpA);
+    	fclose(ifpB);
+    	for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
+
+    }
 }
 
 const char *tileToString(cublasLtMatmulTile_t tile);
