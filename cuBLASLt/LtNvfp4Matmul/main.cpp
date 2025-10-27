@@ -81,7 +81,9 @@ int main(int argc, char** argv) {
                     props.BScaleMode,
                     props.CScaleMode,
                     props.DScaleMode,
-                    props.DOutScaleMode);
+                    props.DOutScaleMode,
+                    iters,
+                    warmup);
     });
 
     return 0;
