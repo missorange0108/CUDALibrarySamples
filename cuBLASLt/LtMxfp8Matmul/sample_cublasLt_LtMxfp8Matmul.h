@@ -50,4 +50,4 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
                  cublasLtMatmulMatrixScale_t AScaleMode,
                  cublasLtMatmulMatrixScale_t BScaleMode,
                  cublasLtMatmulMatrixScale_t CScaleMode,
-                 cublasLtMatmulMatrixScale_t DOutScaleMode);
+                 cublasLtMatmulMatrixScale_t DOutScaleMode, int iters, int warmup);

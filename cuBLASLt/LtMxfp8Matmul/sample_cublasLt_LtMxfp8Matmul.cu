@@ -17,9 +17,11 @@
 
 
 #include <cublasLt.h>
-
+#include <iostream>
 #include "helpers.h"
 #include "sample_cublasLt_LtMxfp8Matmul.h"
+
+using namespace std;
 
 /// Sample wrapper executing mxfp8 matmul with cublasLtMatmul, with addition of per-tensor scaling, and
 /// the workspace to support split-K algorithms.
@@ -52,7 +54,7 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
                  cublasLtMatmulMatrixScale_t AScaleMode,
                  cublasLtMatmulMatrixScale_t BScaleMode,
                  cublasLtMatmulMatrixScale_t CScaleMode,
-                 cublasLtMatmulMatrixScale_t DOutScaleMode) {
+                 cublasLtMatmulMatrixScale_t DOutScaleMode, int iters, int warmup) {
     cublasLtMatmulDesc_t operationDesc = NULL;
     cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL, Ddesc = NULL;
     cublasLtMatmulPreference_t preference = NULL;
@@ -98,7 +100,34 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
         checkCublasStatus(CUBLAS_STATUS_NOT_SUPPORTED);
     }
 
-    checkCublasStatus(cublasLtMatmul(ltHandle,
+    int batchCount = 1; 
+
+    for (int ii=0; ii < warmup; ++ii){
+        checkCublasStatus(cublasLtMatmul(ltHandle,
+                                        operationDesc,
+                                        alpha,
+                                        A,
+                                        Adesc,
+                                        B,
+                                        Bdesc,
+                                        &beta,
+                                        C,
+                                        Cdesc,
+                                        D,
+                                        Ddesc,
+                                        &heuristicResult.algo,
+                                        workspace,
+                                        workspaceSize,
+                                        0));
+    }
+    printf("%d iters warmup finished.\n", warmup);
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+    for (int ii=0; ii < iters; ++ii){
+        checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
                                      alpha,
                                      A,
@@ -114,12 +143,20 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
                                      workspace,
                                      workspaceSize,
                                      0));
+        }
+        cudaEventRecord(stop,0);
+        cudaEventSynchronize(stop);
+        float elapsed;
+        cudaEventElapsedTime(&elapsed, start, stop);
+        cout << "running gemm with repeats: " << iters << ", average time: " << elapsed/iters << " ms, bs=" << batchCount << ", m=" << m << ", n=" << n << ", k="<< k << ", tflops=" << 2*1e-9*m*n*k/(elapsed/iters) * batchCount << endl;
 
-    // descriptors are no longer needed as all GPU work was already enqueued
-    if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));
-    if (Ddesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Ddesc));
-    if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
-    if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
-    if (Adesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
-    if (operationDesc) checkCublasStatus(cublasLtMatmulDescDestroy(operationDesc));
+
+        // descriptors are no longer needed as all GPU work was already enqueued
+        if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));
+        if (Ddesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Ddesc));
+        if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
+        if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
+        if (Adesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
+        if (operationDesc) checkCublasStatus(cublasLtMatmulDescDestroy(operationDesc));
+
 }
