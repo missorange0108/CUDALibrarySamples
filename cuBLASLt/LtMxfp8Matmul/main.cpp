@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, 2.0f, 1.0f, 32ULL * 1024 * 1024, 1,
         CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0, CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0, CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F, CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F, CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0);
 
-    props.run([&props] {
+    props.run([&props, iters, warmup] {
         LtMxfp8Matmul(props.ltHandle,
                     props.transa,
                     props.transb,
