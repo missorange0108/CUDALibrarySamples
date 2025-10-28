@@ -55,7 +55,7 @@ struct StorageType {
 
 template <>
 struct StorageType<__nv_fp4_e2m1> {
-    static constexpr size_t packing = 1;
+    static constexpr size_t packing = 2;
     using type = __nv_fp4x2_e2m1;
 };
 
@@ -445,20 +445,20 @@ inline void TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e4m3, float,
     // for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
     // for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(i % 5);
     // for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
-    bool use_random_flag = 0;
+    bool use_random_flag = 1;
     if (use_random_flag){
         // when use random input, uncomment the following lines and modify static constexpr size_t packing = 2 (line58)
-	    // for (size_t i = 0; i < Ahost.size(); i++){
-        //     float2 f_A = {random_float(), random_float()};
-        //     Ahost[i] = __nv_fp4x2_e2m1{f_A};
-        //     if (i < 20) printf("Ahost[%zu] = {%.1f, %.1f}\n", i, f_A.x, f_A.y);
-        // }
+	    for (size_t i = 0; i < Ahost.size(); i++){
+            float2 f_A = {random_float(), random_float()};
+            Ahost[i] = __nv_fp4x2_e2m1{f_A};
+            if (i < 20) printf("Ahost[%zu] = {%.1f, %.1f}\n", i, f_A.x, f_A.y);
+        }
     
-        // for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
-        // for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
-        // for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
+        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
     }else{
-	    // use .bin file as input
+	    // use .bin file as input, modify static constexpr size_t packing = 1 (line58)
         FILE *ifpA, *ifpB;
     	ifpA = fopen("/home/ubuntu/dataset/chenying/chenying/CUDALibrarySamples/cuBLASLt/Common/a_nvfp4_data_1223_16k32k.bin", "rb");
     	ifpB = fopen("/home/ubuntu/dataset/chenying/chenying/CUDALibrarySamples/cuBLASLt/Common/b_nvfp4_data_1223_32k16k.bin", "rb");
@@ -479,6 +479,22 @@ inline void TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e4m3, float,
     	for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
 
     }
+}
+
+
+template <>
+inline void TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e8m0, float, __nv_bfloat16>::fillData() {
+    
+	for (size_t i = 0; i < Ahost.size(); i++){
+        float2 f_A = {random_float(), random_float()};
+        Ahost[i] = __nv_fp4x2_e2m1{f_A};
+        //if (i < 20) printf("Ahost[%zu] = {%.1f, %.1f}\n", i, f_A.x, f_A.y);
+    }
+    
+    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(0);
+    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+    
 }
 
 const char *tileToString(cublasLtMatmulTile_t tile);
